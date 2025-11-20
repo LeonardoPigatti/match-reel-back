@@ -126,6 +126,26 @@ app.post('/api/add-friend', async (req, res) => {
   }
 });
 
+// GET /api/user/:email
+app.get('/api/user/:email', async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email })
+      .populate({
+        path: 'watchParties',
+        populate: { path: 'participants', select: 'name email username' }
+      })
+      .populate('friends', 'name email username'); // opcional, se quiser amigos também
+
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    res.json({ user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+
 // Rota login (popula amigos)
 app.post('/api/login', async (req, res) => {
   try {
