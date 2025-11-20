@@ -35,12 +35,15 @@ const upload = multer({ storage: storage });
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   username: { type: String, required: true, unique: true },
+  
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   dob: { type: Date },
   gender: { type: String },
   bio: { type: String },
   avatar: { type: String },
+    friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // <-- ADICIONADO
+
   preferences: {
     movies: { type: Boolean, default: false },
     series: { type: Boolean, default: false },
@@ -49,6 +52,31 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
+
+// POST /api/add-friend
+app.post('/api/add-friend', async (req, res) => {
+  const { myEmail, friendEmail } = req.body;
+
+  try {
+    const me = await User.findOne({ email: myEmail });
+    const friend = await User.findOne({ email: friendEmail });
+
+    if (!friend) return res.status(404).json({ message: "Amigo não encontrado" });
+
+    // Evita adicionar duas vezes
+    if (me.friends.includes(friend._id)) {
+      return res.status(400).json({ message: "Já é seu amigo" });
+    }
+
+    me.friends.push(friend._id);
+    await me.save();
+
+    res.json({ message: "Amigo adicionado com sucesso", friend: { name: friend.name, email: friend.email, username: friend.username } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erro interno" });
+  }
+});
 
 // Rota login
 app.post('/api/login', async (req, res) => {
