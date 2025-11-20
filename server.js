@@ -50,6 +50,40 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Rota login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Preencha email e senha' });
+    }
+
+    // Buscar usuário pelo email
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ message: 'Email ou senha inválidos' });
+
+    // Verificar senha
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return res.status(401).json({ message: 'Email ou senha inválidos' });
+
+    // Login OK
+    res.json({
+      message: 'Login realizado com sucesso!',
+      user: {
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        avatar: user.avatar
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+
 // Rota signup
 app.post('/api/signup', upload.single('avatar'), async (req, res) => {
   try {
