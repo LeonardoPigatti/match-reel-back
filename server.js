@@ -1,0 +1,87 @@
+// server.js
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+const cors = require('cors');
+const multer = require('multer'); // Para upload de avatar
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Conexão MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("Mongo conectado"))
+  .catch(err => console.log("Erro mongo", err));
+
+// Configuração Multer para avatar
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function(req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
+// Modelo de Usuário
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  dob: { type: Date },
+  gender: { type: String },
+  bio: { type: String },
+  avatar: { type: String },
+  preferences: {
+    movies: { type: Boolean, default: false },
+    series: { type: Boolean, default: false },
+    both: { type: Boolean, default: false }
+  }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema);
+
+// Rota signup
+app.post('/api/signup', upload.single('avatar'), async (req, res) => {
+  try {
+    const { name, username, email, password, dob, gender, bio, preferences } = req.body;
+
+    // Checar se email ou username já existe
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if(existingUser) return res.status(400).json({ message: 'Usuário já existe' });
+
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Criar usuário
+    const newUser = new User({
+      name,
+      username,
+      email,
+      password: hashedPassword,
+      dob,
+      gender,
+      bio,
+      avatar: req.file ? `/uploads/${req.file.filename}` : null,
+      preferences: JSON.parse(preferences || '{}') // Recebe objeto JSON do frontend
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ message: 'Usuário criado com sucesso', user: newUser });
+  } catch(err) {
+    console.log(err);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+app.listen(PORT, () => console.log(`API rodando na porta ${PORT}`));
