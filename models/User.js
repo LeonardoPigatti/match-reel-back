@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, index: true, unique: true },
   password: { type: String, required: true },
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  watchParties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'WatchParty' }],
   dob: Date,
   gender: String,
   bio: String,
@@ -17,5 +18,7 @@ const UserSchema = new mongoose.Schema({
   popcorn: String,
   soundtrack: String,
 }, { timestamps: true });
+
+
 
 module.exports = mongoose.model('User', UserSchema);

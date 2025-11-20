@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema({
   bio: { type: String },
   avatar: { type: String },
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // amigos
+  watchParties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'WatchParty' }],
   preferences: {
     movies: { type: Boolean, default: false },
     series: { type: Boolean, default: false },
@@ -50,6 +51,49 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
+
+// Schema WatchParty
+const watchPartySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+}, { timestamps: true });
+
+const WatchParty = mongoose.model('WatchParty', watchPartySchema);
+
+// POST /api/create-watchparty
+app.post('/api/create-watchparty', async (req, res) => {
+  try {
+    const { name, participantEmails } = req.body; // array de emails dos participantes
+
+    if (!name || !participantEmails || participantEmails.length === 0) {
+      return res.status(400).json({ message: 'Nome e participantes são obrigatórios' });
+    }
+
+    // Buscar usuários pelo email
+    const participants = await User.find({ email: { $in: participantEmails } });
+    if (participants.length !== participantEmails.length) {
+      return res.status(404).json({ message: 'Algum usuário não foi encontrado' });
+    }
+
+    // Criar a watch party
+    const newWatchParty = new WatchParty({
+      name,
+      participants: participants.map(p => p._id)
+    });
+    await newWatchParty.save();
+
+    // Adicionar watch party no usuário
+    for (const participant of participants) {
+      participant.watchParties.push(newWatchParty._id);
+      await participant.save();
+    }
+
+    res.status(201).json({ message: 'Watch Party criada com sucesso', watchParty: newWatchParty });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
 
 // POST /api/add-friend (bilateral)
 app.post('/api/add-friend', async (req, res) => {
